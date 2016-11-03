@@ -1,0 +1,198 @@
+---
+title: "Reproducible Research - Course Project 1"
+author: "Deon Engelbrecht"
+date: "03 November 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+This is an Peer-graded assignment that is part of the Reproducible Research Course see [link](https://www.coursera.org/learn/reproducible-research).
+
+#### Data Source 
+
+The [Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip] should exit in the working) should be downloaded and placed inside the active directory in a folder called _Data_.
+
+#### Library Includes
+
+```{r }
+
+library(sqldf)
+library(tcltk)
+require(sqldf)
+library(lattice)
+
+```
+
+#### Data Access 
+
+Read the **Activity Monitoring Data** into a variable for processing
+
+```{r activity}
+activity <- read.csv(file = "./Data/activity.csv", header = TRUE, sep = ",")
+activity$date <- as.Date(activity$date, format="%Y-%m-%d")
+
+```
+
+Summry of data:
+
+```{r activity2}
+summary(activity)
+```
+
+## Part 1:
+
+What is mean total number of steps taken per day?
+
+#### Aggregate Data
+
+Aggregate the data: Sum the **Steps** by **Date**
+
+```{r AggregateDate_ByDate}
+agg_ByDate <- aggregate(steps ~ date, data = activity, FUN = sum)
+```
+
+#### Make Histogram
+
+Show Histogram with Step Frequency
+
+```{r MakeHistogram}
+hist(agg_ByDate$steps, main="", xlab="Steps" , ylab = "Frequency", border="black", col="green")
+```
+
+#### Summary
+
+`r paste("The Mean:", mean(agg_ByDate$steps,trim=0))`
+
+`r paste("The Median:", median(agg_ByDate$steps))`
+
+## Part 2:
+
+What is the average daily activity pattern?
+
+#### Aggregate Data
+
+Aggregate the data: Sum the **Steps** by **Interval**
+
+```{r AggregateDate_ByInterval}
+agg_ByInterval <- aggregate(steps ~ interval, data = activity, FUN = sum)
+```
+
+#### Make Time Series Plot
+
+Show Histogram with Step Frequency
+
+```{r MakePlot02}
+plot(agg_ByInterval, type = "l", col = "blue", ylab = "Number Of Steps", xlab="Interval")
+```
+
+#### Highes AVG Steps by Inteval
+
+Roll-up by 5-minute interval, and get the average steps across all the days in the dataset
+
+```{r AggregateDate_ByAVGTotal}
+  agg_AVGInterval <- sqldf("SELECT interval, AVG(steps) as avgSteps from activity GROUP BY interval ORDER BY AVG(steps) DESC")
+  agg_AVGInterval <- agg_AVGInterval[1,]
+```
+
+`r paste("The 5-minute inverval that on AVG contains the max number of steps are:", agg_AVGInterval$interval, " with a AVG Total steps of ", agg_AVGInterval$avgSteps)`
+
+## Part 3:
+
+Imputing missing values 
+
+_Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data_.
+
+**1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)**
+
+```{r Sum_Missing_Values}
+  sum(is.na(activity))
+```
+
+**2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.**
+
+```{r Replce_Missing_Values}
+  
+  agg_AVGStepsByDay <- sqldf("SELECT date, AVG(steps) as avgSteps from activity GROUP BY date ORDER BY date")
+
+  agg_AVGStepsByDay$avgSteps[is.na(agg_AVGStepsByDay$avgSteps)] <- 0
+  
+  activity2 <- activity
+  
+  for(i in 1:nrow(activity2)) { 
+  
+      if(is.na(activity2[i,"steps"])) { 
+        x <- subset(agg_AVGStepsByDay, date == activity2[i,"date"])$avgSteps
+        activity2[i,"steps"] <- x 
+      }
+  }
+  
+    activity2$steps <- as.numeric(activity2$steps)
+
+```
+
+**3. Create a new dataset that is equal to the original dataset but with the missing data filled in.**
+The new data set is activity2:
+
+```{r Show_Activty2}
+  summary(activity2)
+  head(activity2)
+```  
+
+**4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?**
+
+#### Make Histogram (activty with cleanup misssing values)
+
+Show Histogram with Step Frequency usig activity2
+
+```{r MakeHistogram_activity2}
+agg_ByDate2 <- aggregate(steps ~ date, data = activity2, FUN = sum)
+hist(agg_ByDate2$steps, main="", xlab="Steps" , ylab = "Frequency", border="black", col="orange")
+```
+
+#### Summary
+
+`r paste("The Mean:", mean(agg_ByDate2$steps,trim=0))`
+
+`r paste("The Median:", median(agg_ByDate2$steps))`
+
+## Part 4:
+
+Are there differences in activity patterns between weekdays and weekends?
+
+```{r Add_New_dayOfWeek}
+
+  activity2$dayOfWeek <- "weekday"
+  
+  for(i in 1:nrow(activity2)) 
+  { 
+    x <- weekdays(as.Date(activity2[i,"date"]))
+    
+    if( x == "Saturday" | x == "Sunday" ) { 
+        activity2[i,"dayOfWeek"] <- "weekend" 
+    }
+  
+  }
+
+```
+
+#### Aggregate Data
+
+Aggregate the data: Sum the **Steps** by **Interval** AND **dayOfWeek**
+
+```{r AggregateDate_ByIntervalDayOfWeek}
+agg_ByStepsDayOfWeek <- aggregate(steps ~ interval + dayOfWeek, data = activity2, FUN = sum)
+```
+
+#### Make panel plot containing a time series plot
+
+Show Plot with Step and Frequency by **Weekday** OR **Weekend**
+
+```{r MakePlot03}
+xyplot(agg_ByStepsDayOfWeek$steps ~ agg_ByStepsDayOfWeek$interval|agg_ByStepsDayOfWeek$dayOfWeek, grid = TRUE, type = c("p", "r"), xlab = "Intervals", ylab = "Steps")
+```
+
