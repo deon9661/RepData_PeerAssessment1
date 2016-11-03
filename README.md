@@ -11,5 +11,5 @@ _This is an Peer-graded assignment that is part of the Reproducible Research Cou
 You can read about the assignment and data source [here](https://github.com/deon9661/RepData_PeerAssessment1/blob/master/CourseREADME.md)
 
 ### Assignment Output
-My assignment is published on [RPubs](http://rpubs.com/dengelbrecht/RepData_PeerAssessment1) 
+Please view my assignment output with images published on [RPubs](http://rpubs.com/dengelbrecht/RepData_PeerAssessment1) 
 
